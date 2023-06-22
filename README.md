@@ -8,12 +8,21 @@ Currently used by [OMFrontend.js](https://github.com/OpenModelica/OMFrontend.js)
 
 ## Install
 
+You'll need:
+
+  - Python >= v3.6,
+  - Rust and Cargo
+  - [emscripten](https://emscripten.org/index.html) or Docker
+    - Calling emcc from Docker doesn't seem to work on Windows.
+
 ```bash
+cargo build
 npm install --save nan
 npm install --save-dev tree-sitter-cli
+npm run build
 ```
 
-Add `node_modules/.bin` to your `PATH`:
+Add `node_modules/.bin` to your `PATH`.
 
 Bash:
 ```bash
@@ -25,9 +34,13 @@ PowerShell:
 $env:Path += ";$(pwd)\\node_modules\\.bin"
 ```
 
-## Run example
+If you are on Windows forget about it:
+  - tree-sitter-cli can't run emcc on Windows
+    - https://github.com/tree-sitter/tree-sitter/issues/434
+    - https://github.com/tree-sitter/tree-sitter/issues/532
+
+## Parse and highlight example
 
 ```bash
-tree-sitter generate
-tree-sitter parse examples\\helloWorld.mo
+tree-sitter parse examples/helloWorld.mo
 ```

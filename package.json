@@ -3,15 +3,22 @@
     "version": "0.0.0",
     "description": "Modelica grammar for tree-sitter",
     "main": "bindings/node",
+    "tree-sitter": [
+        {
+            "scope": "modelica",
+            "file-types": [
+                "mo"
+            ]
+        }
+    ],
     "scripts": {
-      "build": "npx tree-sitter generate && npx node-gyp configure && npx node-gyp build && npx tree-sitter build-wasm . --docker",
-      "test": "tree-sitter test"
+        "build": "npx tree-sitter generate && npx node-gyp configure && npx node-gyp build && npx tree-sitter build-wasm . --docker",
+        "test": "npx tree-sitter test && npx tree-sitter parse examples/helloWorld.mo"
     },
     "dependencies": {
-      "nan": "^2.15.0"
+        "nan": "^2.17.0"
     },
     "devDependencies": {
-      "tree-sitter-cli": "0.20.4"
+        "tree-sitter-cli": "^0.20.4"
     }
-  }
-  
+}
