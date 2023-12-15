@@ -1,8 +1,11 @@
-================
-Derivative Class
-================
+==========
+Derivative
+==========
 
-model foo = der(bar, foo);
+model M
+equation
+  x = der(y);
+end M;
 
 ---
 
@@ -10,19 +13,36 @@ model foo = der(bar, foo);
   (stored_definition
     (class_definition
       (class_prefixes)
-      (derivative_class_specifier
+      (long_class_specifier
         (IDENT)
-        (type_specifier
-          (name
-            (IDENT)))
+        (equation_section
+          (equation_list
+            (simple_equation
+              (simple_expression
+                (primary_expression
+                  (component_reference
+                    (IDENT))))
+              (expression
+                (simple_expression
+                  (primary_expression
+                    (function_application
+                      (function_call_args
+                        (function_arguments
+                          (expression
+                            (simple_expression
+                              (primary_expression
+                                (component_reference
+                                  (IDENT))))))))))))))
         (IDENT)))))
 
-===============================================
-Enumeration Unspecified Class with Line Comment
-===============================================
+======================
+Directional Derivative
+======================
 
-model foo = enumeration (:);
-// Line Comment
+model M
+equation
+  x = der(y, z);
+end M;
 
 ---
 
@@ -30,16 +50,41 @@ model foo = enumeration (:);
   (stored_definition
     (class_definition
       (class_prefixes)
-      (enumeration_class_specifier
-        (IDENT))))
-  (comment))
+      (long_class_specifier
+        (IDENT)
+        (equation_section
+          (equation_list
+            (simple_equation
+              (simple_expression
+                (primary_expression
+                  (component_reference
+                    (IDENT))))
+              (expression
+                (simple_expression
+                  (primary_expression
+                    (function_application
+                      (function_call_args
+                        (function_arguments
+                          (expression
+                            (simple_expression
+                              (primary_expression
+                                (component_reference
+                                  (IDENT)))))
+                          (expression
+                            (simple_expression
+                              (primary_expression
+                                (component_reference
+                                  (IDENT))))))))))))))
+        (IDENT)))))
 
-========================================
-Enumeration Class with Annotation Clause
-========================================
+================
+Enumeration List
+================
 
-model foo = enumeration (Red, Green)
-  annotation(bar);
+type Size = enumeration(small, medium, large, xlarge);
+model M
+  Size t_shirt_size = Size.medium;
+end M;
 
 ---
 
@@ -53,47 +98,17 @@ model foo = enumeration (Red, Green)
           (enumeration_literal
             (IDENT))
           (enumeration_literal
-            (IDENT)))
-            (annotation_clause
-              (class_modification
-                (argument_list
-                  (element_modification
-                    (name
-                      (IDENT))))))))))
-
-====================================================
-Extends Class with Public and Protected Element List
-====================================================
-
-model extends foo (bar [:] redecl)
-  public
-    Real x;
-  protected
-    Real y;
-end foo;
-
----
-
-(stored_definitions
+            (IDENT))
+          (enumeration_literal
+            (IDENT))
+          (enumeration_literal
+            (IDENT))))))
   (stored_definition
     (class_definition
       (class_prefixes)
-      (extends_class_specifier
+      (long_class_specifier
         (IDENT)
-        (class_modification
-          (argument_list
-            (component_redeclaration
-              (component_clause
-                (type_specifier
-                  (name
-                    (IDENT)))
-                (array_subscripts
-                  (subscript))
-                (component_list
-                  (component_declaration
-                    (declaration
-                      (IDENT))))))))
-        (public_element_list
+        (element_list
           (named_element
             (component_clause
               (type_specifier
@@ -102,15 +117,88 @@ end foo;
               (component_list
                 (component_declaration
                   (declaration
-                    (IDENT)))))))
-        (protected_element_list
-              (named_element
-                (component_clause
-                  (type_specifier
-                    (name
-                      (IDENT)))
-                  (component_list
-                    (component_declaration
-                      (declaration
-                        (IDENT)))))))
-            (IDENT)))))
+                    (IDENT)
+                    (modification
+                      (expression
+                        (simple_expression
+                          (primary_expression
+                            (component_reference
+                              (component_reference
+                                (IDENT))
+                              (IDENT))))))))))))
+        (IDENT)))))
+
+===================
+Enumeration Literal
+===================
+
+type Size2 = enumeration(small "1st", medium "2nd", large "3rd", xlarge "4th");
+
+---
+
+(stored_definitions
+  (stored_definition
+    (class_definition
+      (class_prefixes)
+      (enumeration_class_specifier
+        (IDENT)
+        (enum_list
+          (enumeration_literal
+            (IDENT)
+            (description_string
+              (STRING)))
+          (enumeration_literal
+            (IDENT)
+            (description_string
+              (STRING)))
+          (enumeration_literal
+            (IDENT)
+            (description_string
+              (STRING)))
+          (enumeration_literal
+            (IDENT)
+            (description_string
+              (STRING))))))))
+
+==============================
+Enumeration Type as expression
+==============================
+
+model M
+  replaceable type E=enumeration(:) "Substances in Fluid";
+  Real c[E];
+end M;
+
+---
+
+(stored_definitions
+  (stored_definition
+    (class_definition
+      (class_prefixes)
+      (long_class_specifier
+        (IDENT)
+        (element_list
+          (named_element
+            (class_definition
+              (class_prefixes)
+              (enumeration_class_specifier
+                (IDENT)
+                (description_string
+                  (STRING)))))
+          (named_element
+            (component_clause
+              (type_specifier
+                (name
+                  (IDENT)))
+              (component_list
+                (component_declaration
+                  (declaration
+                    (IDENT)
+                    (array_subscripts
+                      (subscript
+                        (expression
+                          (simple_expression
+                            (primary_expression
+                              (component_reference
+                                (IDENT)))))))))))))
+        (IDENT)))))

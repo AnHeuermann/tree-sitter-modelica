@@ -22,11 +22,11 @@
 
 module.exports = grammar({
     name: "modelica",
-    conflicts: $ => [
-        [$.component_list],
-        [$.equation_list],
-        [$.function_arguments]
-    ],
+    //conflicts: $ => [
+    //    [$.component_list],
+    //    [$.equation_list],
+    //    [$.functionarguments]
+    //],
     extras: $ => [
         $.comment,
         $.BLOCK_COMMENT,
@@ -37,16 +37,21 @@ module.exports = grammar({
 
         // A.2.1 Stored Definition – Within
 
-        stored_definitions: $ => seq(
-            optional($.BOM),
-            optional($.within_clause),
-            repeat(field("storedDefinitions", $.stored_definition))
-        ),
-        within_clause: $ => seq("within", optional(field("name", $.name)), ";"),
-
         stored_definition: $ => seq(
-            optional(field("final", "final")),
-            field("classDefinition", $.class_definition), ";"
+            optional($.BOM),
+            optional(
+                seq(
+                    "within",
+                    optional(field("name", $.name)),
+                    ";")
+            ),
+            repeat(
+                seq(
+                    optional(field("final", "final")),
+                    field("classDefinition", $.class_definition),
+                    ";"
+                )
+            )
         ),
 
         // A.2.2 Class Definition
@@ -54,172 +59,236 @@ module.exports = grammar({
         class_definition: $ => seq(
             optional(field("encapsulated", "encapsulated")),
             field("classPrefixes", $.class_prefixes),
-            field("classSpecifier", $._class_specifier)
+            field("classSpecifier", $.class_specifier)
         ),
 
         class_prefixes: $ => seq(
             optional(field("partial", "partial")),
             choice(
-                field("block", "block"),
                 field("class", "class"),
-                seq(
-                    optional(field("expandable", "expandable")),
-                    field("connector", "connector")),
-                seq(
-                    optional(choice(field("impure", "impure"), field("pure", "pure"))),
-                    optional(field("operator", "operator")),
-                    field("function", "function")),
                 field("model", "model"),
-                field("operator", "operator"),
-                field("package", "package"),
                 seq(
                     optional(field("operator", "operator")),
                     field("record", "record")),
-                field("type", "type")
+                field("block", "block"),
+                seq(
+                    optional(field("expandable", "expandable")),
+                    field("connector", "connector")),
+                field("type", "type"),
+                field("package", "package"),
+                seq(
+                    optional(choice(field("pure", "pure"), field("impure", "impure"))),
+                    optional(field("operator", "operator")),
+                    field("function", "function")),
+                field("operator", "operator")
             )
         ),
 
-        _class_specifier: $ => choice(
-            $.derivative_class_specifier,
-            $.enumeration_class_specifier,
-            $.extends_class_specifier,
+        class_specifier: $ => choice(
             $.long_class_specifier,
-            $.short_class_specifier
+            $.short_class_specifier,
+            $.der_class_specifier
         ),
 
-        derivative_class_specifier: $ => seq(
-            field("identifier", $.IDENT), "=", "der",
-            "(", field("typeSpecifier", $.type_specifier), ",",
-            field("argument", $.IDENT), optional(seq(",", field("argument", $.IDENT))), ")",
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
-        ),
-
-        enumeration_class_specifier: $ => seq(
-            field("identifier", $.IDENT), "=", "enumeration", "(",
-            choice(
-                optional(field("enumerationLiterals", $.enum_list)),
-                field("unspecified", ":")
+        long_class_specifier: $ => choice(
+            seq(
+                field("identifier", $.IDENT),
+                optional(field("descriptionString", $.description_string)),
+                field("composition",
+                    seq(
+                        optional($.element_list),
+                        repeat(
+                            choice(
+                                seq("public", optional($.element_list)),
+                                seq("protected", optional($.element_list)),
+                                $.equation_section,
+                                $.algorithm_section
+                            )
+                        ),
+                        optional(
+                            seq(
+                                "external",
+                                $.language_specification
+                            )
+                        ),
+                        optional(
+                            seq(
+                                $.external_function_call,
+                                $.annotation_clause,
+                                ";"
+                            )
+                        ),
+                        optional(
+                            seq(
+                                $.annotation_clause,
+                                ";"
+                            )
+                        )
+                    ),
+                ),
+                "end",
+                field("endIdentifier", $.IDENT)
             ),
-            ")",
+            seq(
+                "extends",
+                field("identifier", $.IDENT),
+                field("classModification", $.class_modification),
+                optional(field("descriptionString", $.description_string)),
+                field("composition",
+                    seq(
+                        optional($.element_list),
+                        repeat(
+                            choice(
+                                seq("public", optional($.element_list)),
+                                seq("protected", optional($.element_list)),
+                                $.equation_section,
+                                $.algorithm_section
+                            )
+                        ),
+                        optional(
+                            seq(
+                                "external",
+                                $.language_specification
+                            )
+                        ),
+                        optional(
+                            seq(
+                                $.external_function_call,
+                                $.annotation_clause,
+                                ";"
+                            )
+                        ),
+                        optional(
+                            seq(
+                                $.annotation_clause,
+                                ";"
+                            )
+                        )
+                    ),
+                ),
+                "end",
+                field("endIdentifier", $.IDENT)
+            )
+        ),
+
+        short_class_specifier: $ => choice(
+            seq(
+                field("identifier", $.IDENT),
+                "=",
+                optional(field("basePrefix", $.base_prefix)), // TODO: Is this optional?
+                field("typeSpecifier", $.type_specifier),
+                optional(field("subscripts", $.array_subscripts)),
+                optional(field("classModification", $.class_modification)),
+                optional(field("descriptionString", $.description_string)),
+            ),
+            seq(
+                field("identifier", $.IDENT),
+                "=",
+                "enumeration",
+                "(",
+                choice(
+                    $.enum_list,
+                    ":"
+                ),
+                ")",
+                optional(field("descriptionString", $.description_string)),
+                optional(field("annotationClause", $.annotation_clause))
+            ),
+        ),
+
+        der_class_specifier: $ => seq(
+            field("identifier", $.IDENT),
+            "=",
+            "der",
+            "(",
+            field("typeSpecifier", $.type_specifier),
+            ",",
+            field("argument", $.IDENT),
+            optional(seq(",", field("argument", $.IDENT))), ")",
             optional(field("descriptionString", $.description_string)),
             optional(field("annotationClause", $.annotation_clause))
+        ),
+
+        base_prefix: $ => choice(
+            "input",
+            "output"
         ),
 
         enum_list: $ => seq(
-            field("enumerationLiteral", $.enumeration_literal), repeat(seq(",", field("enumerationLiteral", $.enumeration_literal)))
+            field("enumerationLiteral", $.enumeration_literal),
+            repeat(seq(",", field("enumerationLiteral", $.enumeration_literal)))
         ),
 
         enumeration_literal: $ => seq(
             field("identifier", $.IDENT),
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
+            field("description", seq(
+                optional(field("descriptionString", $.description_string)),
+                optional(field("annotationClause", $.annotation_clause))
+                )
+            )
         ),
 
-        extends_class_specifier: $ => seq(
-            "extends",
-            field("identifier", $.IDENT),
-            optional(field("classModification", $.class_modification)),
-            optional(field("descriptionString", $.description_string)),
-            optional($.element_list),
-            repeat(choice(
-                $.public_element_list,
-                $.protected_element_list,
-                $.algorithm_section,
-                $.equation_section)),
-            optional(field("externalClause", $.external_clause)),
-            optional(seq(field("annotationClause", $.annotation_clause), ";")),
-            "end",
-            field("endIdentifier", $.IDENT)
+        // composition can be empty, so it's integrated in long_class_specifier
+
+        language_specification: $ => field(
+            "value", $.STRING
         ),
 
-        long_class_specifier: $ => seq(
-            field("identifier", $.IDENT),
-            optional(field("descriptionString", $.description_string)),
-            optional($.element_list),
-            repeat(choice(
-                $.public_element_list,
-                $.protected_element_list,
-                $.algorithm_section,
-                $.equation_section
+        external_function_call: $ => seq(
+            optional(seq(
+                field("componentReference", $.component_reference),
+                "="
             )),
-            optional(field("externalClause", $.external_clause)),
-            optional(seq(field("annotationClause", $.annotation_clause), ";")),
-            "end",
-            field("endIdentifier", $.IDENT)
-        ),
-
-        short_class_specifier: $ => seq(
             field("identifier", $.IDENT),
-            "=",
-            optional(field("basePrefix", $.base_prefix)),
-            field("typeSpecifier", $.type_specifier),
-            optional(field("subscripts", $.array_subscripts)),
-            optional(field("classModification", $.class_modification)),
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
+            "(",
+            optional(field("expressions", $.expression_list)), ")"
         ),
 
-        external_clause: $ => seq(
-            "external",
-            optional(field("languageSpecification", $.language_specification)),
-            optional(field("externalFunction", $.external_function)),
-            optional(field("annotationClause", $.annotation_clause)),
-            ";"
+        // element-list can be empty, so it's repeat1 and every location has to use optional($.element_list)
+        element_list: $ => repeat1(
+            seq(field("element", $.element), ";")
         ),
 
-        language_specification: $ => field("value", $.STRING),
-
-        external_function: $ => seq(
-            optional(seq(field("componentReference", $.component_reference), "=")),
-            field("identifier", $.IDENT), "(", optional(field("expressions", $.expression_list)), ")"
-        ),
-
-        base_prefix: $ => choice("input", "output"),
-
-        element_list: $ => seq(
-            repeat1(seq(field("element", $._element), ";"))
-        ),
-
-        public_element_list: $ => seq(
-            "public", repeat(seq(field("element", $._element), ";"))
-        ),
-
-        protected_element_list: $ => seq(
-            "protected", repeat(seq(field("element", $._element), ";"))
-        ),
-
-        _element: $ => choice(
-            $.extends_clause,
+        element: $ => choice(
             $.import_clause,
-            $.named_element
+            $.extends_clause,
+            $._named_element
         ),
 
-        named_element: $ => seq(
+        _named_element: $ => seq(
             optional(field("redeclare", "redeclare")),
             optional(field("final", "final")),
             optional(field("inner", "inner")),
             optional(field("outer", "outer")),
-            optional(field("replaceable", "replaceable")),
             choice(
                 field("classDefinition", $.class_definition),
-                field("componentClause", $.component_clause)
-            ),
-            optional(seq(
-                field("constrainingClause", $.constraining_clause),
-                optional(field("descriptionString", $.description_string)),
-                optional(field("annotationClause", $.annotation_clause))
-            )),
+                field("componentClause", $.component_clause),
+                seq(
+                    "replaceable",
+                    choice(
+                        field("classDefinition", $.class_definition),
+                        field("componentClause", $.component_clause)
+                    ),
+                    optional(
+                        field("constrainingClause", $.constraining_clause)
+                    ),
+                )
+            )
         ),
 
         import_clause: $ => seq(
             "import",
             choice(
-                seq(field("alias", $.IDENT), "=", field("name", $.name)),
+                seq(
+                    field("alias", $.IDENT),
+                    "=",
+                    field("name", $.name)),
                 seq(
                     field("name", $.name),
                     optional(
-                        seq(".",
+                        //field("wildcard", ".*"),
+                        seq(
+                            ".",
                             choice(
                                 field("wildcard", "*"),
                                 seq("{", field("imports", $.import_list), "}")
@@ -228,12 +297,15 @@ module.exports = grammar({
                     )
                 )
             ),
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause)),
+            field("description", seq(
+                optional(field("descriptionString", $.description_string)),
+                optional(field("annotationClause", $.annotation_clause))
+            ))
         ),
 
         import_list: $ => seq(
-            field("import", $.IDENT), repeat(seq(",", field("import", $.IDENT)))
+            field("import", $.IDENT),
+            repeat(seq(",", field("import", $.IDENT)))
         ),
 
         // A.2.3 Extends
@@ -254,13 +326,26 @@ module.exports = grammar({
         // A.2.4 Component Clause
 
         component_clause: $ => seq(
-            optional(choice(field("flow", "flow"), field("stream", "stream"))),
-            optional(choice(field("constant", "constant"), field("discrete", "discrete"), field("parameter", "parameter"))),
-            optional(choice(field("input", "input"), field("output", "output"))),
+            field("typePrefix",
+                seq(
+                optional(
+                    choice(
+                        field("flow", "flow"),
+                        field("stream", "stream"))),
+                optional(choice(
+                    field("discrete", "discrete"),
+                    field("parameter", "parameter"),
+                    field("constant", "constant"))),
+                optional(choice(
+                    field("input", "input"),
+                    field("output", "output"))),
+            )),
             field("typeSpecifier", $.type_specifier),
             optional(field("subscripts", $.array_subscripts)),
             field("componentDeclarations", $.component_list)
         ),
+
+        // type-prefix can be empty, so it is integrated into component_clause
 
         component_list: $ => seq(
             field("componentDeclaration", $.component_declaration),
@@ -269,9 +354,16 @@ module.exports = grammar({
 
         component_declaration: $ => seq(
             field("declaration", $.declaration),
-            optional(seq("if", field("condition", $.expression))),
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
+            optional(field("conditionAttribute", $.condition_attribute)),
+            field("description", seq(
+                optional(field("descriptionString", $.description_string)),
+                optional(field("annotationClause", $.annotation_clause))
+            ))
+        ),
+
+        condition_attribute: $ => seq(
+            "if",
+            $.expression
         ),
 
         declaration: $ => seq(
@@ -283,7 +375,10 @@ module.exports = grammar({
         // A.2.5 Modification
 
         modification: $ => choice(
-            seq(field("classModification", $.class_modification), optional(seq("=", field("expression", $.expression)))),
+            seq(
+                field("classModification", $.class_modification),
+                optional(seq("=", field("expression", $.expression)))
+            ),
             seq(choice("=", ":="), field("expression", $.expression))
         ),
 
@@ -292,359 +387,400 @@ module.exports = grammar({
         ),
 
         argument_list: $ => seq(
-            field("argument", $._argument), repeat(seq(",", field("argument", $._argument)))
+            field("argument", $.argument),
+            repeat(seq(",", field("argument", $.argument)))
         ),
 
-        _argument: $ => choice(
-            $.element_modification,
-            $._element_redeclaration
+        argument: $ => choice(
+            $.element_modification_or_replaceable,
+            $.element_redeclaration
+        ),
+
+        element_modification_or_replaceable: $ => seq(
+            optional(field("each", "each")),
+            optional(field("final", "final")),
+            choice(
+                field("modification", $.element_modification),
+                field("replaceable", $.element_replaceable)
+            )
         ),
 
         element_modification: $ => seq(
-            optional(field("each", "each")),
-            optional(field("final", "final")),
             field("name", $.name),
             optional(field("modification", $.modification)),
             optional(field("descriptionString", $.description_string))
         ),
 
-        _element_redeclaration: $ => choice(
-            $.class_redeclaration,
-            $.component_redeclaration
-        ),
-
-        class_redeclaration: $ => seq(
-            optional(field("redeclare", "redeclare")),
+        element_redeclaration: $ => seq(
+            field("redeclare", "redeclare"),
             optional(field("each", "each")),
             optional(field("final", "final")),
-            optional(field("replaceable", "replaceable")),
-            field("classDefinition", $.short_class_definition),
+            choice(
+                field("shortClassDefinition", $.short_class_definition),
+                field("componentClause1", $.component_clause1),
+                field("elementReplaceable", $.element_replaceable),
+            )
+        ),
+
+        element_replaceable: $ => seq(
+            field("replaceable", "replaceable"),
+            choice(
+                field("shortClassDefinition", $.short_class_definition),
+                field("componentClause1", $.component_clause1)
+            ),
             optional(field("constrainingClause", $.constraining_clause))
         ),
 
-        component_redeclaration: $ => seq(
-            optional(field("redeclare", "redeclare")),
-            optional(field("each", "each")),
-            optional(field("final", "final")),
-            optional(field("replaceable", "replaceable")),
-            field("componentClause", $.component_clause),
-            optional(field("constrainingClause", $.constraining_clause))
+        component_clause1: $ => seq(
+            field("typePrefix",
+                seq(
+                optional(
+                    choice(
+                        field("flow", "flow"),
+                        field("stream", "stream"))),
+                optional(choice(
+                    field("discrete", "discrete"),
+                    field("parameter", "parameter"),
+                    field("constant", "constant"))),
+                optional(choice(
+                    field("input", "input"),
+                    field("output", "output"))),
+            )),
+            field("typeSpecifier", $.type_specifier),
+            field("componentDeclaration1", $.component_declaration1),
+        ),
+
+        component_declaration1: $ => seq(
+            field("declaration", $.declaration),
+            field("description", seq(
+                optional(field("descriptionString", $.description_string)),
+                optional(field("annotationClause", $.annotation_clause))
+            ))
         ),
 
         short_class_definition: $ => seq(
             field("classPrefixes", $.class_prefixes),
-            field("classSpecifier", choice(
-                $.enumeration_class_specifier,
-                $.short_class_specifier
-            ))
+            field("classSpecifier", $.short_class_specifier)
         ),
 
         // A.2.6 Equations
 
-        equation_section: $ => prec.right(seq(
-            optional(field("initial", "initial")), "equation",
-            optional(field("equations", $.equation_list))
+        equation_section: $ => prec.left(seq(
+            optional(field("initial", "initial")),
+            "equation",
+            field("equations", repeat(seq(field("equation", $.equation), ";")))
         )),
 
-        algorithm_section: $ => prec.right(seq(
-            optional(field("initial", "initial")), "algorithm",
-            optional(field("statements", $.statement_list))
+        algorithm_section: $ =>  prec.right(seq(
+            optional(field("initial", "initial")),
+            "algorithm",
+            field("statements", repeat(seq(field("statement", $.statement), ";")))
         )),
 
-        equation_list: $ => repeat1(seq(field("equation", $._equation), ";")),
-
-        _equation: $ => choice(
-            $.connect_clause,
-            $.for_equation,
-            $.function_application_equation,
-            $.if_equation,
-            $.simple_equation,
-            $.when_equation
+        equation: $ => seq(
+            choice(
+                seq($.simple_expression, "=", $.expression),
+                $.if_equation,
+                $.for_equation,
+                $.connect_clause,
+                $.when_equation,
+                seq($.component_reference, $.function_call_args)
+            ),
+            field("description", seq(
+                optional(field("descriptionString", $.description_string)),
+                optional(field("annotationClause", $.annotation_clause))
+            ))
         ),
 
-        statement_list: $ => repeat1(seq(field("statement", $._statement), ";")),
-
-        _statement: $ => choice(
-            $.assignment_statement,
-            $.break_statement,
-            $.for_statement,
-            $.function_application_statement,
-            $.if_statement,
-            $.multiple_output_function_application_statement,
-            $.return_statement,
-            $.when_statement,
-            $.while_statement
-        ),
-
-        assignment_statement: $ => seq(
-            field("targetExpression", $.component_reference), ":=", field("sourceExpression", $.expression),
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
-        ),
-
-        break_statement: $ => seq(
-            "break",
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
-        ),
-
-        connect_clause: $ => seq(
-            "connect", "(", field("component1", $.component_reference), ",", field("component2", $.component_reference), ")",
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
-        ),
-
-        for_equation: $ => seq(
-            "for", field("indices", $.for_indices),
-            "loop", optional(field("equations", $.equation_list)),
-            "end", "for",
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
-        ),
-
-        for_statement: $ => seq(
-            "for", field("indices", $.for_indices),
-            "loop", optional(field("statements", $.statement_list)),
-            "end", "for",
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
-        ),
-
-        for_indices: $ => seq(field("index", $.for_index), repeat(seq(",", field("index", $.for_index)))),
-
-        for_index: $ => seq(field("identifier", $.IDENT), optional(seq("in", field("expression", $.expression)))),
-
-        function_application_equation: $ => seq(
-            field("functionReference", $.component_reference),
-            field("arguments", $.function_call_args),
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
-        ),
-
-        function_application_statement: $ => seq(
-            field("functionReference", $.component_reference),
-            field("arguments", $.function_call_args),
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
+        statement: $ => seq(
+            choice(
+                seq(
+                    field("componentReference", $.component_reference),
+                    choice(
+                        seq(":=", field("sourceExpression", $.expression)),
+                        field("functionCallArgs", $.function_call_args)
+                    )
+                ),
+                seq(
+                    "(",
+                    optional(field("expressions", $.output_expression_list)),
+                    ")",
+                    ":=",
+                    field("componentReference", $.component_reference),
+                    field("functionCallArgs", $.function_call_args)
+                ),
+                "break",
+                "return",
+                $.if_statement,
+                $.for_statement,
+                $.while_statement,
+                $.when_statement
+            ),
+            field("description", seq(
+                optional(field("descriptionString", $.description_string)),
+                optional(field("annotationClause", $.annotation_clause))
+            ))
         ),
 
         if_equation: $ => seq(
-            "if", field("condition", $.expression),
-            "then", optional(field("thenEquations", $.equation_list)),
-            optional(field("elseIfClauses", $.else_if_equation_clause_list)),
-            optional(seq("else", optional(field("elseEquations", $.equation_list)))),
-            "end", "if",
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
+            "if",
+            field("condition", $.expression),
+            "then",
+            optional(field("thenEquations", repeat(seq(field("equation", $.equation), ";")))),
+            repeat(seq(
+                "elseif",
+                field("elseIfCondition", $.expression),
+                "then",
+                optional(field("thenEquations", prec.left(repeat(seq(field("equation", $.equation), ";"))))),
+            )),
+            optional(seq(
+                "else",
+                optional(field("thenEquations", prec.left(repeat(seq(field("equation", $.equation), ";"))))),
+            )),
+            "end", "if"
         ),
-
-        else_if_equation_clause_list: $ => repeat1($.else_if_equation_clause),
-
-        else_if_equation_clause: $ => prec.right(seq(
-            "elseif", field("condition", $.expression),
-            "then", optional(field("equations", $.equation_list))
-        )),
 
         if_statement: $ => seq(
-            "if", field("condition", $.expression),
-            "then", optional(field("thenStatements", $.statement_list)),
-            optional(field("elseIfClauses", $.else_if_statement_clause_list)),
-            optional(seq("else", optional(field("elseStatements", $.statement_list)))),
-            "end", "if",
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
+            "if",
+            field("condition", $.expression),
+            "then",
+            optional(field("thenStatements", repeat(seq(field("statement", $.statement), ";")))),
+            repeat(seq(
+                "elseif",
+                field("elseIfCondition", $.expression),
+                "then",
+                optional(field("thenStatements", prec.left(repeat(seq(field("statement", $.statement), ";"))))),
+            )),
+            optional(seq(
+                "else",
+                optional(field("thenStatements", prec.left(repeat(seq(field("statement", $.statement), ";"))))),
+            )),
+            "end", "if"
         ),
 
-        else_if_statement_clause_list: $ => repeat1($.else_if_statement_clause),
-
-        else_if_statement_clause: $ => prec.right(seq(
-            "elseif", field("condition", $.expression),
-            "then", optional(field("statements", $.statement_list))
-        )),
-
-        multiple_output_function_application_statement: $ => seq(
-            field("targetExpression", $.parenthesized_expression), ":=",
-            field("functionReference", $.component_reference),
-            field("arguments", $.function_call_args),
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
+        for_equation: $ => seq(
+            "for",
+            field("indices", $.for_indices),
+            "loop",
+            field("equations", repeat(seq(field("equation", $.equation), ";"))),
+            "end", "for",
         ),
 
-        return_statement: $ => seq(
-            "return",
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
+        for_statement: $ => seq(
+            "for",
+            field("indices", $.for_indices),
+            "loop",
+            field("statements", repeat(seq(field("statement", $.statement), ";"))),
+            "end", "for",
         ),
 
-        simple_equation: $ => seq(
-            field("expression1", $.simple_expression), "=", field("expression2", $.expression),
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause)),
+        for_indices: $ => seq(
+            field("index", $.for_index),
+            repeat(seq(",", field("index", $.for_index)))
+        ),
+
+        for_index: $ => seq(
+            field("identifier", $.IDENT),
+            optional(seq(
+                "in",
+                field("expression", $.expression)))
+        ),
+
+        while_statement: $ => seq(
+            "while",
+            field("condition", $.expression),
+            "loop",
+            field("statements", repeat(seq(field("statement", $.statement), ";"))),
+            "end", "while"
         ),
 
         when_equation: $ => seq(
-            "when", field("condition", $.expression),
-            "then", optional(field("equations", $.equation_list)),
-            optional(field("elseWhenClauses", $.else_when_equation_clause_list)),
-            "end", "when",
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
+            "when",
+            field("condition", $.expression),
+            "then",
+            field("equations", repeat(seq(field("equation", $.equation), ";"))),
+            repeat(seq(
+                "elsewhen",
+                field("elsewenCondition", $.expression),
+                "then",
+                optional(field("thenEquations", repeat(seq(field("equation", $.equation), ";")))),
+            )),
+            "end", "when"
         ),
-
-        else_when_equation_clause_list: $ => repeat1($.else_when_equation_clause),
-
-        else_when_equation_clause: $ => prec.right(seq(
-            "elsewhen", field("condition", $.expression),
-            "then", optional(field("equations", $.equation_list))
-        )),
 
         when_statement: $ => seq(
-            "when", field("condition", $.expression),
-            "then", optional(field("statements", $.statement_list)),
-            optional(field("elseWhenClauses", $.else_when_statement_clause_list)),
-            "end", "when",
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
+            "when",
+            field("condition", $.expression),
+            "then",
+            field("statements", repeat(seq(field("statement", $.statement), ";"))),
+            repeat(seq(
+                "elsewhen",
+                field("elsewenCondition", $.expression),
+                "then",
+                optional(field("thenstatements", repeat(seq(field("statement", $.statement), ";")))),
+            )),
+            "end", "when"
         ),
 
-        else_when_statement_clause_list: $ => repeat1($.else_when_statement_clause),
-
-        else_when_statement_clause: $ => prec.right(seq(
-            "elsewhen", field("condition", $.expression),
-            "then", optional(field("statements", $.statement_list))
-        )),
-
-        while_statement: $ => seq(
-            "while", field("condition", $.expression),
-            "loop", optional(field("statements", $.statement_list)),
-            "end", "while",
-            optional(field("descriptionString", $.description_string)),
-            optional(field("annotationClause", $.annotation_clause))
+        connect_clause: $ => seq(
+            "connect",
+            "(",
+            field("component1", $.component_reference),
+            ",",
+            field("component2", $.component_reference),
+            ")"
         ),
 
         // A.2.7 Expressions
 
         expression: $ => choice(
-            $.if_expression,
-            $.range_expression,
-            $.simple_expression
+            $.simple_expression,
+            $._if_expression
         ),
 
-        if_expression: $ => seq(
+        _if_expression: $ => seq(
             "if", field("condition", $.expression),
             "then", field("thenExpression", $.expression),
-            repeat(field("elseIfClause", $.else_if_clause)),
+            repeat(field("elseIfClause", $._else_if_clause)),
             "else", field("elseExpression", $.expression)
         ),
 
-        else_if_clause: $ => seq(
+        _else_if_clause: $ => seq(
             "elseif", field("condition", $.expression),
             "then", field("expression", $.expression)
         ),
 
-        range_expression: $ => choice(
-            seq(field("startExpression", $.simple_expression), ":",
-                field("stepExpression", $.simple_expression), ":",
-                field("stopExpression", $.simple_expression)),
-            seq(field("startExpression", $.simple_expression), ":",
-                field("stopExpression", $.simple_expression))
+        simple_expression: $ => seq(
+            $.logical_expression,
+            optional(seq(
+                ":",
+                $.logical_expression,
+                optional(seq(
+                    ":",
+                    $.logical_expression,
+                ))
+            ))
         ),
 
-        simple_expression: $ => choice(
-            $.unary_expression,
-            $.binary_expression,
-            $.primary_expression
+        logical_expression: $ => seq(
+            $.logical_term,
+            repeat(seq(
+                "or",
+                $.logical_term
+            ))
         ),
 
-        binary_expression: $ => choice(
-            prec.left(1, seq(field("operand1", $.simple_expression), field("operator", "or"), field("operand2", $.simple_expression))),
-            prec.left(2, seq(field("operand1", $.simple_expression), field("operator", "and"), field("operand2", $.simple_expression))),
-            prec.right(3, seq(field("operand1", $.simple_expression), field("operator", "<"), field("operand2", $.simple_expression))),
-            prec.right(3, seq(field("operand1", $.simple_expression), field("operator", "<="), field("operand2", $.simple_expression))),
-            prec.right(3, seq(field("operand1", $.simple_expression), field("operator", ">"), field("operand2", $.simple_expression))),
-            prec.right(3, seq(field("operand1", $.simple_expression), field("operator", ">="), field("operand2", $.simple_expression))),
-            prec.right(3, seq(field("operand1", $.simple_expression), field("operator", "=="), field("operand2", $.simple_expression))),
-            prec.right(3, seq(field("operand1", $.simple_expression), field("operator", "<>"), field("operand2", $.simple_expression))),
-            prec.left(4, seq(field("operand1", $.simple_expression), field("operator", "+"), field("operand2", $.simple_expression))),
-            prec.left(4, seq(field("operand1", $.simple_expression), field("operator", "-"), field("operand2", $.simple_expression))),
-            prec.left(4, seq(field("operand1", $.simple_expression), field("operator", ".+"), field("operand2", $.simple_expression))),
-            prec.left(4, seq(field("operand1", $.simple_expression), field("operator", ".-"), field("operand2", $.simple_expression))),
-            prec.left(5, seq(field("operand1", $.simple_expression), field("operator", "*"), field("operand2", $.simple_expression))),
-            prec.left(5, seq(field("operand1", $.simple_expression), field("operator", "/"), field("operand2", $.simple_expression))),
-            prec.left(5, seq(field("operand1", $.simple_expression), field("operator", ".*"), field("operand2", $.simple_expression))),
-            prec.left(5, seq(field("operand1", $.simple_expression), field("operator", "./"), field("operand2", $.simple_expression))),
-            prec.right(6, seq(field("operand1", $.primary_expression), field("operator", "^"), field("operand2", $.primary_expression))),
-            prec.right(6, seq(field("operand1", $.primary_expression), field("operator", ".^"), field("operand2", $.primary_expression))),
+        logical_term: $ => seq(
+            $.logical_factor,
+            repeat(seq(
+                "and",
+                $.logical_factor
+            ))
         ),
 
-        unary_expression: $ => prec(7, choice(
-            seq(field("operator", "not"), field("operand", $.simple_expression)),
-            seq(field("operator", "+"), field("operand", $.simple_expression)),
-            seq(field("operator", "-"), field("operand", $.simple_expression))
-        )),
-
-        primary_expression: $ => choice(
-            $.array_comprehension,
-            $.array_concatenation,
-            $.array_constructor,
-            $.component_reference,
-            $.end_expression,
-            $.function_application,
-            $.literal_expression,
-            $.parenthesized_expression
+        logical_factor: $ => seq(
+            optional("not"),
+            $.relation
         ),
 
-        end_expression: $ => "end",
-
-        array_comprehension: $ => seq(
-            "{", field("expression", $.expression), "for", field("indices", $.for_indices), "}"
+        relation: $ => seq(
+            $.arithmetic_expression,
+            optional(seq(
+                $.relational_operator,
+                $.arithmetic_expression
+            ))
         ),
 
-        array_concatenation: $ => seq(
-            "[", field("expressions", $.expression_list), repeat(seq(";", field("expressions", $.expression_list))), "]"
+        relational_operator: $ => choice(
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "==",
+            "<>"
         ),
 
-        array_constructor: $ => seq(
-            "{", field("arguments", $.array_arguments), "}"
+        arithmetic_expression: $ => seq(
+            optional($.add_operator),
+            $.term,
+            repeat(seq(
+                $.add_operator,
+                $.term
+            ))
         ),
 
-        array_arguments: $ => seq(
-            field("argument", $.expression), repeat(seq(",", field("argument", $.expression)))
+        add_operator: $ => choice(
+            "+",
+            "-",
+            ".+",
+            ".-"
         ),
 
-        parenthesized_expression: $ => seq(
-            "(", optional(field("expressions", $.output_expression_list)), ")"
+        term: $ => seq(
+            $.factor,
+            repeat(seq(
+                $.mul_operator,
+                $.factor
+            ))
         ),
 
-        function_application: $ => seq(
-            choice(
-                field("functionReference", $.component_reference),
-                field("der", "der"), field("initial", "initial"), field("pure", "pure")
+        mul_operator: $ => choice(
+            "*",
+            "/",
+            ".*",
+            "./"
+        ),
+
+        factor: $ => seq(
+            $.primary,
+            repeat(seq(
+                choice("^", ".^"),
+                $.primary
+            ))
+        ),
+
+        primary: $ => choice(
+            $.UNSIGNED_NUMBER,
+            $.STRING,
+            "false",
+            "true",
+            seq(
+                choice(
+                    $.component_reference,
+                    "der",
+                    "initial",
+                    "pure"
+                ),
+                $.function_call_args
             ),
-            field("arguments", $.function_call_args)
+            $.component_reference,
+            seq(
+                "(",
+                optional(field("expressions", $.output_expression_list)),
+                ")"
+            ),
+            seq(
+                "[",
+                $.expression_list,
+                repeat(seq(";", field("expressions", $.expression_list))),
+                "]"
+            ),
+            seq(
+                "{",
+                $.array_arguments,
+                "}"
+            ),
+            "end"
         ),
 
-        literal_expression: $ => choice(
-            $.logical_literal_expression,
-            $.string_literal_expression,
-            $._unsigned_number_literal_expression,
+        UNSIGNED_NUMBER: $ => choice(
+            $.UNSIGNED_INTEGER,
+            $.UNSIGNED_REAL
         ),
-
-        logical_literal_expression: $ => choice("false", "true"),
-
-        string_literal_expression: $ => $.STRING,
-
-        _unsigned_number_literal_expression: $ => choice(
-            $.unsigned_integer_literal_expression,
-            $.unsigned_real_literal_expression,
-        ),
-
-        unsigned_integer_literal_expression: $ => $.UNSIGNED_INTEGER,
-
-        unsigned_real_literal_expression: $ => $.UNSIGNED_REAL,
 
         type_specifier: $ => seq(
-            optional(field("global", ".")), field("name", $.name)
+            optional(field("global", ".")),
+            field("name", $.name)
         ),
 
         name: $ => prec.left(choice(
@@ -661,49 +797,108 @@ module.exports = grammar({
             )
         )),
 
-        function_call_args: $ => choice(
-            seq("(", field("arguments", $.function_arguments), optional(seq(",", field("namedArguments", $.named_arguments))), ")"),
-            seq("(", optional(field("namedArguments", $.named_arguments)), ")"),
-            seq("(", field("index", $.expression), "for", field("indices", $.for_indices), ")")
+        function_call_args: $ => seq(
+            "(",
+            field("arguments", $.function_arguments),
+            ")"
         ),
 
-        function_arguments: $ => seq(
-            field("argument", $._function_argument), repeat(seq(",", field("argument", $._function_argument)))
+        function_arguments: $ => choice(
+            seq(
+                $.expression,
+                optional(
+                    choice(
+                        seq(".", $.function_arguments_non_first),
+                        seq("for", $.for_indices)
+                ))
+            ),
+            seq(
+                $.function_partial_application,
+                optional(seq(",", $.function_arguments_non_first))
+            ),
+            $.named_arguments
+        ),
+
+        function_arguments_non_first: $ => choice(
+            seq(
+                $.function_arguments,
+                optional(seq(
+                    ",",
+                    $.function_arguments_non_first
+                ))
+            ),
+            $.named_arguments
+        ),
+
+        array_arguments: $ => seq(
+            field("argument", $.expression),
+            optional(choice(
+                seq(",", $.array_arguments_non_first),
+                seq("for", $.for_indices)
+            ))
+        ),
+
+        array_arguments_non_first: $ => seq(
+            $.expression,
+            optional(seq(
+                ",",
+                $.array_arguments_non_first
+            ))
         ),
 
         named_arguments: $ => seq(
-            field("namedArgument", $.named_argument), repeat(seq(",", field("namedArgument", $.named_argument)))
+            field("namedArgument", $.named_argument),
+            optional(seq(",", field("namedArguments", $.named_arguments)))
         ),
 
         named_argument: $ => seq(
-            field("identifier", $.IDENT), "=", field("expression", $._function_argument)
+            field("identifier", $.IDENT),
+            "=",
+            $.function_argument
         ),
 
-        _function_argument: $ => choice(
+        function_argument: $ => choice(
             $.function_partial_application,
             $.expression
         ),
 
         function_partial_application: $ => seq(
-            "function", field("typeSpecifier", $.type_specifier), "(", optional(field("namedArguments", $.named_arguments)), ")"
+            "function",
+            field("typeSpecifier", $.type_specifier),
+            "(",
+            optional(field("namedArguments", $.named_arguments)),
+            ")"
         ),
 
+        // Can also be empty, so use optional($.output_expression_list)
         output_expression_list: $ => choice(
-            seq(field("expression", $.expression), repeat(seq(field("comma", ","), optional(field("expression", $.expression))))),
-            repeat1(seq(field("comma", ","), optional(field("expression", $.expression))))
+            seq(
+                field("expression", $.expression),
+                repeat(seq(field("comma", ","), optional(field("expression", $.expression))))
+            ),
+            repeat1(seq(
+                field("comma", ","),
+                optional(field("expression", $.expression))))
         ),
 
         expression_list: $ => seq(
-            field("expression", $.expression), repeat(seq(",", field("expression", $.expression)))
+            field("expression", $.expression),
+            repeat(seq(",", field("expression", $.expression)))
         ),
 
         array_subscripts: $ => seq(
-            "[", field("subscript", $.subscript), repeat(seq(",", field("subscript", $.subscript))), "]"
+            "[",
+            field("subscript", $.subscript),
+            repeat(seq(",", field("subscript", $.subscript))),
+            "]"
         ),
 
         subscript: $ => choice(
-            ":", field("expression", $.expression)
+            ":",
+            field("expression", $.expression)
         ),
+
+        // description can be empty
 
         description_string: $ => seq(
             field("value", $.STRING), repeat(seq("+", field("value", $.STRING)))
